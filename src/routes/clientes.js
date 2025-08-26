@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { manejarError } = require('../utils');
+const { manejarError } = require('../utils/utils');
 
 /**
  * @route   GET /api/clientes

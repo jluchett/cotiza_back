@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { manejarError, formatearMoneda } = require('../utils');
+const { manejarError, formatearMoneda } = require('../utils/utils');
 
 /**
  * @route   GET /api/items
