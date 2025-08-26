@@ -1,0 +1,392 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../db');
+const { manejarError, formatearMoneda } = require('../utils');
+
+/**
+ * @route   GET /api/items
+ * @desc    Obtener todos los items con paginación y filtros
+ * @access  Public
+ */
+router.get('/', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    const { tipo, search, minPrice, maxPrice } = req.query;
+
+    let whereConditions = [];
+    let queryParams = [];
+    let paramCount = 0;
+
+    // Construir condiciones WHERE dinámicamente
+    if (tipo) {
+      paramCount++;
+      whereConditions.push(`it.name = $${paramCount}`);
+      queryParams.push(tipo);
+    }
+
+    if (search) {
+      paramCount++;
+      whereConditions.push(`(i.name ILIKE $${paramCount} OR i.description ILIKE $${paramCount})`);
+      queryParams.push(`%${search}%`);
+    }
+
+    if (minPrice) {
+      paramCount++;
+      whereConditions.push(`i.price >= $${paramCount}`);
+      queryParams.push(parseFloat(minPrice));
+    }
+
+    if (maxPrice) {
+      paramCount++;
+      whereConditions.push(`i.price <= $${paramCount}`);
+      queryParams.push(parseFloat(maxPrice));
+    }
+
+    const whereClause = whereConditions.length > 0 
+      ? `WHERE ${whereConditions.join(' AND ')}` 
+      : '';
+
+    // Query principal con JOIN para obtener el nombre del tipo
+    const query = `
+      SELECT 
+        i.id,
+        i.name,
+        i.description,
+        i.price,
+        i.type_id,
+        it.name as type_name,
+        i.created_at,
+        i.updated_at
+      FROM items i
+      INNER JOIN item_types it ON i.type_id = it.id
+      ${whereClause}
+      ORDER BY i.name ASC
+      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+    `;
+
+    // Query para contar total
+    const countQuery = `
+      SELECT COUNT(*)
+      FROM items i
+      INNER JOIN item_types it ON i.type_id = it.id
+      ${whereClause}
+    `;
+
+    // Ejecutar ambas queries en paralelo
+    const [itemsResult, countResult] = await Promise.all([
+      db.query(query, [...queryParams, limit, offset]),
+      db.query(countQuery, queryParams)
+    ]);
+
+    const total = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(total / limit);
+
+    // Formatear precios para la respuesta
+    const itemsFormateados = itemsResult.rows.map(item => ({
+      ...item,
+      price_formatted: formatearMoneda(item.price),
+      price: parseFloat(item.price)
+    }));
+
+    res.json({
+      items: itemsFormateados,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      },
+      filters: {
+        tipo,
+        search,
+        minPrice,
+        maxPrice
+      }
+    });
+
+  } catch (error) {
+    manejarError(error, res, 'Error al obtener los items');
+  }
+});
+
+/**
+ * @route   GET /api/items/:id
+ * @desc    Obtener un item específico por ID
+ * @access  Public
+ */
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || isNaN(id)) {
+      return res.status(400).json({ error: 'ID de item válido requerido' });
+    }
+
+    const query = `
+      SELECT 
+        i.id,
+        i.name,
+        i.description,
+        i.price,
+        i.type_id,
+        it.name as type_name,
+        i.created_at,
+        i.updated_at
+      FROM items i
+      INNER JOIN item_types it ON i.type_id = it.id
+      WHERE i.id = $1
+    `;
+
+    const result = await db.query(query, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Item no encontrado' });
+    }
+
+    const item = {
+      ...result.rows[0],
+      price_formatted: formatearMoneda(result.rows[0].price),
+      price: parseFloat(result.rows[0].price)
+    };
+
+    res.json(item);
+  } catch (error) {
+    manejarError(error, res, 'Error al obtener el item');
+  }
+});
+
+/**
+ * @route   POST /api/items
+ * @desc    Crear un nuevo item
+ * @access  Public
+ */
+router.post('/', async (req, res) => {
+  try {
+    const { name, description, price, type_id } = req.body;
+
+    // Validaciones
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Nombre del item requerido' });
+    }
+
+    if (!price || isNaN(price) || price <= 0) {
+      return res.status(400).json({ error: 'Precio válido requerido' });
+    }
+
+    if (!type_id || isNaN(type_id)) {
+      return res.status(400).json({ error: 'Tipo de item válido requerido' });
+    }
+
+    // Verificar que el tipo existe
+    const tipoCheck = await db.query('SELECT id FROM item_types WHERE id = $1', [type_id]);
+    if (tipoCheck.rows.length === 0) {
+      return res.status(400).json({ error: 'Tipo de item no válido' });
+    }
+
+    const query = `
+      INSERT INTO items (name, description, price, type_id)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `;
+
+    const result = await db.query(query, [
+      name.trim(),
+      description?.trim() || null,
+      parseFloat(price),
+      parseInt(type_id)
+    ]);
+
+    // Obtener el item completo con el nombre del tipo
+    const itemCompleto = await db.query(`
+      SELECT 
+        i.*,
+        it.name as type_name
+      FROM items i
+      INNER JOIN item_types it ON i.type_id = it.id
+      WHERE i.id = $1
+    `, [result.rows[0].id]);
+
+    const item = {
+      ...itemCompleto.rows[0],
+      price_formatted: formatearMoneda(itemCompleto.rows[0].price),
+      price: parseFloat(itemCompleto.rows[0].price)
+    };
+
+    res.status(201).json({
+      message: 'Item creado exitosamente',
+      item
+    });
+  } catch (error) {
+    if (error.code === '23505') { // Violación de unique constraint
+      return res.status(400).json({ error: 'Ya existe un item con ese nombre' });
+    }
+    manejarError(error, res, 'Error al crear el item');
+  }
+});
+
+/**
+ * @route   PUT /api/items/:id
+ * @desc    Actualizar un item existente
+ * @access  Public
+ */
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, price, type_id } = req.body;
+
+    if (!id || isNaN(id)) {
+      return res.status(400).json({ error: 'ID de item válido requerido' });
+    }
+
+    // Verificar que el item existe
+    const itemExistente = await db.query('SELECT * FROM items WHERE id = $1', [id]);
+    if (itemExistente.rows.length === 0) {
+      return res.status(404).json({ error: 'Item no encontrado' });
+    }
+
+    // Validaciones
+    if (name && !name.trim()) {
+      return res.status(400).json({ error: 'Nombre del item no válido' });
+    }
+
+    if (price && (isNaN(price) || price <= 0)) {
+      return res.status(400).json({ error: 'Precio válido requerido' });
+    }
+
+    if (type_id && isNaN(type_id)) {
+      return res.status(400).json({ error: 'Tipo de item válido requerido' });
+    }
+
+    // Verificar que el tipo existe si se está actualizando
+    if (type_id) {
+      const tipoCheck = await db.query('SELECT id FROM item_types WHERE id = $1', [type_id]);
+      if (tipoCheck.rows.length === 0) {
+        return res.status(400).json({ error: 'Tipo de item no válido' });
+      }
+    }
+
+    const query = `
+      UPDATE items 
+      SET 
+        name = COALESCE($1, name),
+        description = COALESCE($2, description),
+        price = COALESCE($3, price),
+        type_id = COALESCE($4, type_id),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $5
+      RETURNING *
+    `;
+
+    const result = await db.query(query, [
+      name ? name.trim() : null,
+      description ? description.trim() : null,
+      price ? parseFloat(price) : null,
+      type_id ? parseInt(type_id) : null,
+      parseInt(id)
+    ]);
+
+    // Obtener el item completo actualizado
+    const itemCompleto = await db.query(`
+      SELECT 
+        i.*,
+        it.name as type_name
+      FROM items i
+      INNER JOIN item_types it ON i.type_id = it.id
+      WHERE i.id = $1
+    `, [id]);
+
+    const item = {
+      ...itemCompleto.rows[0],
+      price_formatted: formatearMoneda(itemCompleto.rows[0].price),
+      price: parseFloat(itemCompleto.rows[0].price)
+    };
+
+    res.json({
+      message: 'Item actualizado exitosamente',
+      item
+    });
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(400).json({ error: 'Ya existe un item con ese nombre' });
+    }
+    manejarError(error, res, 'Error al actualizar el item');
+  }
+});
+
+/**
+ * @route   DELETE /api/items/:id
+ * @desc    Eliminar un item
+ * @access  Public
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || isNaN(id)) {
+      return res.status(400).json({ error: 'ID de item válido requerido' });
+    }
+
+    // Verificar que el item existe
+    const itemExistente = await db.query('SELECT * FROM items WHERE id = $1', [id]);
+    if (itemExistente.rows.length === 0) {
+      return res.status(404).json({ error: 'Item no encontrado' });
+    }
+
+    // Verificar si el item está siendo usado en alguna cotización
+    const usoCheck = await db.query(
+      'SELECT COUNT(*) FROM cotizacion_items WHERE item_id = $1',
+      [id]
+    );
+
+    if (parseInt(usoCheck.rows[0].count) > 0) {
+      return res.status(400).json({ 
+        error: 'No se puede eliminar el item porque está siendo usado en cotizaciones' 
+      });
+    }
+
+    await db.query('DELETE FROM items WHERE id = $1', [id]);
+
+    res.json({ message: 'Item eliminado exitosamente' });
+  } catch (error) {
+    manejarError(error, res, 'Error al eliminar el item');
+  }
+});
+
+/**
+ * @route   GET /api/items/tipos/count
+ * @desc    Obtener conteo de items por tipo
+ * @access  Public
+ */
+router.get('/tipos/count', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        it.id,
+        it.name as tipo,
+        COUNT(i.id) as cantidad_items,
+        COALESCE(SUM(i.price), 0) as valor_total
+      FROM item_types it
+      LEFT JOIN items i ON it.id = i.type_id
+      GROUP BY it.id, it.name
+      ORDER BY it.name
+    `;
+
+    const result = await db.query(query);
+    
+    const stats = result.rows.map(row => ({
+      ...row,
+      valor_total: parseFloat(row.valor_total),
+      valor_total_formatted: formatearMoneda(row.valor_total)
+    }));
+
+    res.json(stats);
+  } catch (error) {
+    manejarError(error, res, 'Error al obtener estadísticas por tipo');
+  }
+});
+
+module.exports = router;

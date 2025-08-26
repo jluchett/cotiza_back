@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Cotizacion = require('../models/cotizaciones');
-const { generarIdCotizacion, formatearMoneda, manejarError } = require('../utils/utils');
+const { formatearMoneda, manejarError } = require('../utils/utils');
 
 /**
  * @route   GET /api/cotizaciones
