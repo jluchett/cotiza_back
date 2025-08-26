@@ -1,5 +1,5 @@
 const db = require('../db');
-const { generarIdCotizacion } = require('../utils');
+const { generarIdCotizacion } = require('../utils/utils');
 const pdfGenerator = require('../utils/pdfGenerator');
 
 class Cotizacion {
