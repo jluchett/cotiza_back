@@ -1,5 +1,6 @@
 const db = require('../db');
-const { generarIdCotizacion } = require('../utils/utils');
+const { generarIdCotizacion } = require('../utils');
+const pdfGenerator = require('../utils/pdfGenerator');
 
 class Cotizacion {
   static async crear(clienteId, items) {
@@ -73,6 +74,22 @@ class Cotizacion {
       ...cotRes.rows[0],
       items: itemsRes.rows
     };
+  }
+
+  static async obtenerTodasPaginadas(query, params) {
+    return await db.query(query, params);
+  }
+
+  static async contarTodos(query, params = []) {
+    return await db.query(query, params);
+  }
+
+  static async eliminar(id) {
+    return await db.query('DELETE FROM cotizaciones WHERE id = $1', [id]);
+  }
+
+  static async generarPDF(cotizacion) {
+    return await pdfGenerator.generarCotizacionPDF(cotizacion);
   }
 }
 

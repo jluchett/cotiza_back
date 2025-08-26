@@ -2,8 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const cotizacionesRoutes = require('./routes/cotizaciones');
-const itemsRoutes = require('./routes/items');
-const clientesRoutes = require('./routes/clientes');
+//const itemsRoutes = require('./routes/items');
+//const clientesRoutes = require('./routes/clientes');
 const { inicializarBaseDeDatos, verificarConexion } = require('./db');
 
 const app = express();
@@ -14,8 +14,8 @@ app.use(bodyParser.json());
 
 // Rutas
 app.use('/api/cotizaciones', cotizacionesRoutes);
-app.use('/api/items', itemsRoutes);
-app.use('/api/clientes', clientesRoutes);
+//app.use('/api/items', itemsRoutes);
+//app.use('/api/clientes', clientesRoutes);
 
 // Ruta de salud para verificar que el servidor funciona
 app.get('/api/health', async (req, res) => {
