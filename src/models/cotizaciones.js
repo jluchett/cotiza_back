@@ -1,5 +1,5 @@
 const db = require('../db');
-const { generarIdCotizacion } = require('../utils/pdfGenerator');
+const { generarIdCotizacion } = require('../utils/utils');
 
 class Cotizacion {
   static async crear(clienteId, items) {
