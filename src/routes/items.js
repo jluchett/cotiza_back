@@ -5,108 +5,13 @@ const { manejarError, formatearMoneda } = require('../utils/utils');
 
 /**
  * @route   GET /api/items
- * @desc    Obtener todos los items con paginación y filtros
+ * @desc    Obtener todos los items 
  * @access  Public
  */
 router.get('/', async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
-    const { tipo, search, minPrice, maxPrice } = req.query;
-
-    let whereConditions = [];
-    let queryParams = [];
-    let paramCount = 0;
-
-    // Construir condiciones WHERE dinámicamente
-    if (tipo) {
-      paramCount++;
-      whereConditions.push(`it.name = $${paramCount}`);
-      queryParams.push(tipo);
-    }
-
-    if (search) {
-      paramCount++;
-      whereConditions.push(`(i.name ILIKE $${paramCount} OR i.description ILIKE $${paramCount})`);
-      queryParams.push(`%${search}%`);
-    }
-
-    if (minPrice) {
-      paramCount++;
-      whereConditions.push(`i.price >= $${paramCount}`);
-      queryParams.push(parseFloat(minPrice));
-    }
-
-    if (maxPrice) {
-      paramCount++;
-      whereConditions.push(`i.price <= $${paramCount}`);
-      queryParams.push(parseFloat(maxPrice));
-    }
-
-    const whereClause = whereConditions.length > 0 
-      ? `WHERE ${whereConditions.join(' AND ')}` 
-      : '';
-
-    // Query principal con JOIN para obtener el nombre del tipo
-    const query = `
-      SELECT 
-        i.id,
-        i.name,
-        i.description,
-        i.price,
-        i.type_id,
-        it.name as type_name,
-        i.created_at,
-        i.updated_at
-      FROM items i
-      INNER JOIN item_types it ON i.type_id = it.id
-      ${whereClause}
-      ORDER BY i.name ASC
-      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-    `;
-
-    // Query para contar total
-    const countQuery = `
-      SELECT COUNT(*)
-      FROM items i
-      INNER JOIN item_types it ON i.type_id = it.id
-      ${whereClause}
-    `;
-
-    // Ejecutar ambas queries en paralelo
-    const [itemsResult, countResult] = await Promise.all([
-      db.query(query, [...queryParams, limit, offset]),
-      db.query(countQuery, queryParams)
-    ]);
-
-    const total = parseInt(countResult.rows[0].count);
-    const totalPages = Math.ceil(total / limit);
-
-    // Formatear precios para la respuesta
-    const itemsFormateados = itemsResult.rows.map(item => ({
-      ...item,
-      price_formatted: formatearMoneda(item.price),
-      price: parseFloat(item.price)
-    }));
-
-    res.json({
-      items: itemsFormateados,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      },
-      filters: {
-        tipo,
-        search,
-        minPrice,
-        maxPrice
-      }
-    });
+    const items = await db.query('SELECT * FROM items');
+    res.json(items.rows);
 
   } catch (error) {
     manejarError(error, res, 'Error al obtener los items');

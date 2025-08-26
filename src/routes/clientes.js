@@ -5,97 +5,13 @@ const { manejarError } = require('../utils/utils');
 
 /**
  * @route   GET /api/clientes
- * @desc    Obtener todos los clientes con paginación y búsqueda
+ * @desc    Obtener todos los clientes 
  * @access  Public
  */
 router.get('/', async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
-    const { search, sortBy = 'nombre', sortOrder = 'asc' } = req.query;
-
-    // Validar parámetros de ordenamiento
-    const validSortColumns = ['nombre', 'created_at', 'cotizaciones_count'];
-    const validSortOrders = ['asc', 'desc'];
-    
-    const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'nombre';
-    const order = validSortOrders.includes(sortOrder.toLowerCase()) ? sortOrder : 'asc';
-
-    let whereCondition = '';
-    let queryParams = [];
-
-    if (search) {
-      whereCondition = 'WHERE nombre ILIKE $1';
-      queryParams.push(`%${search}%`);
-    }
-
-    // Query principal con conteo de cotizaciones
-    const query = `
-      SELECT 
-        c.id,
-        c.nombre,
-        c.email,
-        c.telefono,
-        c.direccion,
-        c.created_at,
-        c.updated_at,
-        COUNT(co.id) as cotizaciones_count,
-        COALESCE(SUM(co.total), 0) as total_cotizaciones
-      FROM clientes c
-      LEFT JOIN cotizaciones co ON c.id = co.cliente_id
-      ${whereCondition}
-      GROUP BY c.id
-      ORDER BY ${sortColumn === 'cotizaciones_count' ? 'cotizaciones_count' : `c.${sortColumn}`} ${order}
-      LIMIT ${whereCondition ? '$2' : '$1'} 
-      OFFSET ${whereCondition ? '$3' : '$2'}
-    `;
-
-    // Query para contar total
-    const countQuery = `
-      SELECT COUNT(*) 
-      FROM clientes
-      ${whereCondition}
-    `;
-
-    // Parámetros para las queries
-    const queryParamsWithPagination = whereCondition 
-      ? [...queryParams, limit, offset]
-      : [limit, offset];
-
-    // Ejecutar ambas queries en paralelo
-    const [clientesResult, countResult] = await Promise.all([
-      db.query(query, queryParamsWithPagination),
-      db.query(countQuery, queryParams)
-    ]);
-
-    const total = parseInt(countResult.rows[0].count);
-    const totalPages = Math.ceil(total / limit);
-
-    // Formatear números
-    const clientesFormateados = clientesResult.rows.map(cliente => ({
-      ...cliente,
-      cotizaciones_count: parseInt(cliente.cotizaciones_count),
-      total_cotizaciones: parseFloat(cliente.total_cotizaciones)
-    }));
-
-    res.json({
-      clientes: clientesFormateados,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      },
-      filters: {
-        search,
-        sortBy,
-        sortOrder
-      }
-    });
-
+    const clientes = await db.query('SELECT * FROM clientes');
+    res.json(clientes.rows);
   } catch (error) {
     manejarError(error, res, 'Error al obtener los clientes');
   }
