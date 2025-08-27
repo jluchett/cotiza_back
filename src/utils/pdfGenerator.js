@@ -44,11 +44,11 @@ function generarCotizacionPDF(cotizacion) {
     // Items
     let y = tableTop + 30;
     cotizacion.items.forEach(item => {
-      const itemTotal = item.price * item.quantity;
+      const itemTotal = parseFloat(item.price) * item.quantity;
       
       doc.font('Helvetica')
         .text(item.name, 50, y)
-        .text(`$${item.price.toFixed(2)}`, 50 + itemWidth, y)
+        .text(`$${parseFloat(item.price).toFixed(2)}`, 50 + itemWidth, y)
         .text(item.quantity.toString(), 50 + itemWidth + priceWidth, y)
         .text(`$${itemTotal.toFixed(2)}`, 50 + itemWidth + priceWidth + quantityWidth, y);
       
@@ -58,8 +58,8 @@ function generarCotizacionPDF(cotizacion) {
     // Total
     doc.moveDown()
       .font('Helvetica-Bold')
-      .text(`Total: $${cotizacion.total.toFixed(2)}`, { align: 'right' });
-    
+      .text(`Total: $${parseFloat(cotizacion.total).toFixed(2)}`, { align: 'right' });
+
     doc.end();
   });
 }
