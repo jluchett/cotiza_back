@@ -4,6 +4,20 @@ const db = require('../db');
 const { manejarError, formatearMoneda } = require('../utils/utils');
 
 /**
+ * @route   GET /api/items/tipos
+ * @desc    Obtener todos los tipos de items
+ * @access  Public
+ */
+router.get('/tipos', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM item_types ORDER BY name');
+        res.json(result.rows);
+    } catch (error) {
+        manejarError(error, res, 'Error al obtener los tipos de items');
+    }
+});
+
+/**
  * @route   GET /api/items
  * @desc    Obtener todos los items 
  * @access  Public
@@ -258,20 +272,6 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     manejarError(error, res, 'Error al eliminar el item');
   }
-});
-
-/**
- * @route   GET /api/items/tipos
- * @desc    Obtener todos los tipos de items
- * @access  Public
- */
-router.get('/tipos', async (req, res) => {
-    try {
-        const result = await db.query('SELECT * FROM item_types ORDER BY name');
-        res.json(result.rows);
-    } catch (error) {
-        manejarError(error, res, 'Error al obtener los tipos de items');
-    }
 });
 
 module.exports = router;
