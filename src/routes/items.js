@@ -262,19 +262,16 @@ router.delete('/:id', async (req, res) => {
 
 /**
  * @route   GET /api/items/tipos
- * @desc    Obtener tipos de items
+ * @desc    Obtener todos los tipos de items
  * @access  Public
  */
 router.get('/tipos', async (req, res) => {
-  try {
-    
-    const tipos = await db.query('SELECT * FROM item_types ORDER BY name');
-
-    res.json(tipos.rows);
-
-  } catch (error) {
-    manejarError(error, res, 'Error al obtener tipos de items');
-  }
+    try {
+        const result = await db.query('SELECT * FROM item_types ORDER BY name');
+        res.json(result.rows);
+    } catch (error) {
+        manejarError(error, res, 'Error al obtener los tipos de items');
+    }
 });
 
 module.exports = router;
