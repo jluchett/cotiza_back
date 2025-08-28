@@ -18,7 +18,7 @@ function generarCotizacionPDF(cotizacion) {
     
     // Información de la cotización
     doc.fontSize(12).text(`Número: ${cotizacion.id}`);
-    doc.text(`Fecha: ${cotizacion.fecha}`);
+    doc.text(`Fecha: ${new Date(cotizacion.fecha).toLocaleDateString()}`);
     doc.text(`Cliente: ${cotizacion.cliente_nombre}`);
     doc.moveDown();
     

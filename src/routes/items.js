@@ -71,7 +71,7 @@ router.get('/:id', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { name, description, price, type_id } = req.body;
+    const { name, price, type_id } = req.body;
 
     // Validaciones
     if (!name || !name.trim()) {
@@ -93,14 +93,13 @@ router.post('/', async (req, res) => {
     }
 
     const query = `
-      INSERT INTO items (name, description, price, type_id)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO items (name, price, type_id)
+      VALUES ($1, $2, $3)
       RETURNING *
     `;
 
     const result = await db.query(query, [
       name.trim(),
-      description?.trim() || null,
       parseFloat(price),
       parseInt(type_id)
     ]);
@@ -262,35 +261,19 @@ router.delete('/:id', async (req, res) => {
 });
 
 /**
- * @route   GET /api/items/tipos/count
- * @desc    Obtener conteo de items por tipo
+ * @route   GET /api/items/tipos
+ * @desc    Obtener tipos de items
  * @access  Public
  */
-router.get('/tipos/count', async (req, res) => {
+router.get('/tipos', async (req, res) => {
   try {
-    const query = `
-      SELECT 
-        it.id,
-        it.name as tipo,
-        COUNT(i.id) as cantidad_items,
-        COALESCE(SUM(i.price), 0) as valor_total
-      FROM item_types it
-      LEFT JOIN items i ON it.id = i.type_id
-      GROUP BY it.id, it.name
-      ORDER BY it.name
-    `;
-
-    const result = await db.query(query);
     
-    const stats = result.rows.map(row => ({
-      ...row,
-      valor_total: parseFloat(row.valor_total),
-      valor_total_formatted: formatearMoneda(row.valor_total)
-    }));
+    const tipos = await db.query('SELECT * FROM item_types ORDER BY name');
 
-    res.json(stats);
+    res.json(tipos.rows);
+
   } catch (error) {
-    manejarError(error, res, 'Error al obtener estadísticas por tipo');
+    manejarError(error, res, 'Error al obtener tipos de items');
   }
 });
 
