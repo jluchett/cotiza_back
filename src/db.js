@@ -78,17 +78,16 @@ async function insertarDatosEjemplo() {
     if (parseInt(result.rows[0].count) > 0) {
       console.log('✅ Ya existen datos en la base de datos');
       // actualizar tablas
+      /* Estas son los clientes creados al inicio:
+        id=1 nombre='Empresa ABC S.A. de C.V.',
+        id=2 nombre='Tiendas XYZ México',
+        id=3 nombre='Servicios Corporativos LMN',
+        id=4 nombre='Consultoría Tech Solutions' */
+      // actualizamos el cliente que necesitemos cambiar
       await pool.query(`
-        INSERT INTO item_types (name) VALUES 
-        ('Otro tipo de ítem')
-        ON CONFLICT (name) DO NOTHING;
+        UPDATE clientes SET nombre = 'Synergia' WHERE id = 1
       `);
-       // Insertar clientes
-      await pool.query(`
-        INSERT INTO clientes (nombre) VALUES 
-        ('Synergia')
-        ON CONFLICT DO NOTHING;
-      `);
+      console.log('✅ Tabla clientes actualizado cliente con id=1');
     }else {
       console.log('✅ No existen datos en la base de datos');
       console.log('Insertando datos de ejemplo...');
@@ -127,9 +126,6 @@ async function insertarDatosEjemplo() {
 
       console.log('✅ Datos de ejemplo insertados correctamente');
       }
-
-    
-    
   } catch (error) {
     console.error('Error insertando datos de ejemplo:', error.message);
   }
