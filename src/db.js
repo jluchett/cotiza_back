@@ -77,44 +77,58 @@ async function insertarDatosEjemplo() {
     const result = await pool.query('SELECT COUNT(*) FROM item_types');
     if (parseInt(result.rows[0].count) > 0) {
       console.log('✅ Ya existen datos en la base de datos');
-      return;
-    }
+      // actualizar tablas
+      await pool.query(`
+        INSERT INTO item_types (name) VALUES 
+        ('Otro tipo de ítem')
+        ON CONFLICT (name) DO NOTHING;
+      `);
+       // Insertar clientes
+      await pool.query(`
+        INSERT INTO clientes (nombre) VALUES 
+        ('Synergia')
+        ON CONFLICT DO NOTHING;
+      `);
+    }else {
+      console.log('✅ No existen datos en la base de datos');
+      console.log('Insertando datos de ejemplo...');
 
-    console.log('Insertando datos de ejemplo...');
+      // Insertar tipos de items
+      await pool.query(`
+        INSERT INTO item_types (name) VALUES 
+        ('Software'),
+        ('Hardware'),
+        ('Servicios'),
+        ('Licencias')
+        ON CONFLICT (name) DO NOTHING;
+      `);
 
-    // Insertar tipos de items
-    await pool.query(`
-      INSERT INTO item_types (name) VALUES 
-      ('Software'),
-      ('Hardware'),
-      ('Servicios'),
-      ('Licencias')
-      ON CONFLICT (name) DO NOTHING;
-    `);
+      // Insertar items
+      await pool.query(`
+        INSERT INTO items (name, type_id, price) VALUES 
+        ('Windows 10 Pro', 1, 1500.00),
+        ('Licencia Office 365', 4, 800.00),
+        ('Servidor Dell R740', 2, 25000.00),
+        ('Mantenimiento mensual', 3, 5000.00),
+        ('Antivirus Enterprise', 1, 1200.00),
+        ('Laptop HP EliteBook', 2, 18000.00)
+        ON CONFLICT DO NOTHING;
+      `);
 
-    // Insertar items
-    await pool.query(`
-      INSERT INTO items (name, type_id, price) VALUES 
-      ('Windows 10 Pro', 1, 1500.00),
-      ('Licencia Office 365', 4, 800.00),
-      ('Servidor Dell R740', 2, 25000.00),
-      ('Mantenimiento mensual', 3, 5000.00),
-      ('Antivirus Enterprise', 1, 1200.00),
-      ('Laptop HP EliteBook', 2, 18000.00)
-      ON CONFLICT DO NOTHING;
-    `);
+      // Insertar clientes
+      await pool.query(`
+        INSERT INTO clientes (nombre) VALUES 
+        ('Empresa ABC S.A. de C.V.'),
+        ('Tiendas XYZ México'),
+        ('Servicios Corporativos LMN'),
+        ('Consultoría Tech Solutions')
+        ON CONFLICT DO NOTHING;
+      `);
 
-    // Insertar clientes
-    await pool.query(`
-      INSERT INTO clientes (nombre) VALUES 
-      ('Empresa ABC S.A. de C.V.'),
-      ('Tiendas XYZ México'),
-      ('Servicios Corporativos LMN'),
-      ('Consultoría Tech Solutions')
-      ON CONFLICT DO NOTHING;
-    `);
+      console.log('✅ Datos de ejemplo insertados correctamente');
+      }
 
-    console.log('✅ Datos de ejemplo insertados correctamente');
+    
     
   } catch (error) {
     console.error('Error insertando datos de ejemplo:', error.message);
